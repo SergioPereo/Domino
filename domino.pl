@@ -92,7 +92,7 @@ play(Left,Right,0,Turn):-
     assertz(played(Left,Right)),
     (Turn is 0 ->
     retract(have(Left, Right))
-    ;retract(pool(Left, Right)),opponent_play).
+    ;retract(pool(Left, Right)),opponent_play),!.
 play(Left,Right,1,Turn):-
     end_right(Right),
     retract(end_right(Right)),
@@ -105,13 +105,13 @@ play(Left,Right,1,Turn):-
     assertz(end_right(Right)),
     assertz(played(Left,Right)),
     (Turn is 0 -> retract(have(Left, Right));
-    retract(pool(Left, Right)),opponent_play).
+    retract(pool(Left, Right)),opponent_play),!.
 play(Left, Right, -1,Turn):-
     assertz(end_left(Left)),
     assertz(end_right(Right)),
     assertz(played(Left,Right)),
     (Turn is 0 -> retract(have(Left, Right));
-    retract(pool(Left, Right)),opponent_play).
+    retract(pool(Left, Right)),opponent_play),!.
 
 unplay(Left,Right,0,Turn):-
     end_left(Right),
@@ -127,7 +127,7 @@ unplay(Left,Right,0,Turn):-
     retract(played(Left,Right)),
     (Turn is 0->
     assertz(have(Left,Right))
-    ; assertz(pool(Left,Right)),opponent_steal).
+    ; assertz(pool(Left,Right)),opponent_steal),!.
 unplay(Left,Right,1,Turn):-
     end_right(Right),
     retract(end_right(Right)),
@@ -142,7 +142,7 @@ unplay(Left,Right,1,Turn):-
     retract(played(Left,Right)),
     (Turn is 0->
     assertz(have(Left,Right))
-    ; assertz(pool(Left,Right)),opponent_steal).
+    ; assertz(pool(Left,Right)),opponent_steal),!.
 
 can_i_place_on(Left,Right,End):-
     have(Left,Right),
@@ -186,7 +186,6 @@ heuristic(1).
 %Reach Max Depth
 alphabeta(Depth,Depth,_,_,_,Heuristic,_,_,_):-
     heuristic(Heuristic),
-    write("Heuristic "),write(Heuristic),nl,
     !.
 alphabeta(_,_,_,_,_,Heuristic,_,_,_):-
     pieces_opponent(P),
@@ -197,21 +196,19 @@ alphabeta(_,_,_,_,_,Heuristic,_,_,_):-
      ;(possible_plays(Pieces),
       opponent_possible_plays(OpponentPieces),
        Pieces==[],
-       OpponentPieces==[]->Heuristic=0;false))),write("Leaf"),nl,!.
+       OpponentPieces==[]->Heuristic=0;false))),!.
 %Win,Lose,Draw
 alphabeta(Depth,MaxDepth,Alpha,Beta,0,Heuristic,DoLeft,DoRight,DoEnd):-
     possible_plays(Plays),
     NewDepth is Depth+1,
     for_each_play(Plays,0,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,NewDepth,MaxDepth),
     Heuristic=ActualMax,
-    write("Check my plays"),nl,
     !.
 alphabeta(Depth,MaxDepth,Alpha,Beta,1,Heuristic,DoLeft,DoRight,DoEnd):-
     opponent_possible_plays(Plays),
     NewDepth is Depth+1,
     for_each_play(Plays,1,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,NewDepth,MaxDepth),
     Heuristic=ActualMax,
-    write("Check opponent plays"),nl,
     !.
 
 for_each_play([],0,_,_,_,Alpha,_,Alpha,_,_):-!.
