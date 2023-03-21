@@ -1,4 +1,13 @@
-:-dynamic have/2,end_left/1,end_right/1,played/2,pool/2,pieces_opponent/1.
+:-dynamic have/2,end_left/1,end_right/1,played/2,pool/2,pieces_opponent/1,opponent_have/2,opponent_pool/2,pieces_own/1,opponent_end_left/1,opponent_end_right/1,opponent_played/2.
+:-use_module(library(random)).
+
+max(A,B,Max):-
+    A>B,Max is A,!.
+max(_,B,B).
+
+min(A,B,Min):-
+    A<B,Min is A,!.
+min(_,B,B).
 
 pool(0,0).
 pool(0,1).
@@ -30,16 +39,6 @@ pool(5,6).
 pool(6,6).
 
 pieces_opponent(7).
-
-
-max(A,B,Max):-
-    A>B,Max is A,!.
-max(_,B,B).
-
-min(A,B,Min):-
-    A<B,Min is A,!.
-min(_,B,B).
-
 
 opponent_play:-
     pieces_opponent(X),
@@ -74,7 +73,7 @@ take([Piece|L]):-
     take(L).
 
 %Pieces in pool
-pieces_left(Pieces):-
+pool_pieces(Pieces):-
     findall([Left,Right], (pool(Left,Right)),Pieces).
 %Function that changes the state of the game with a play
 %0: my turn, else opponent turn
@@ -85,33 +84,36 @@ play(Left,Right,0,Turn):-
     assertz(played(Left,Right)),
     (Turn is 0 ->
     retract(have(Left, Right))
-    ;retract(pool(Left, Right)),opponent_play),!.
+    ;retract(pool(Left,Right)),opponent_play),!.
 play(Left,Right,0,Turn):-
     retract(end_left(Right)),
     assertz(end_left(Left)),
     assertz(played(Left,Right)),
     (Turn is 0 ->
     retract(have(Left, Right))
-    ;retract(pool(Left, Right)),opponent_play),!.
+    ;retract(pool(Left,Right)),opponent_play),!.
 play(Left,Right,1,Turn):-
     end_right(Right),
     retract(end_right(Right)),
     assertz(end_right(Left)),
     assertz(played(Left,Right)),
-    (Turn is 0 -> retract(have(Left, Right));
-    retract(pool(Left, Right)),opponent_play),!.
+    (Turn is 0 ->
+    retract(have(Left, Right))
+    ;retract(pool(Left,Right)),opponent_play),!.
 play(Left,Right,1,Turn):-
     retract(end_right(Left)),
     assertz(end_right(Right)),
     assertz(played(Left,Right)),
-    (Turn is 0 -> retract(have(Left, Right));
-    retract(pool(Left, Right)),opponent_play),!.
+    (Turn is 0 ->
+    retract(have(Left, Right))
+    ;retract(pool(Left,Right)),opponent_play),!.
 play(Left, Right, -1,Turn):-
     assertz(end_left(Left)),
     assertz(end_right(Right)),
     assertz(played(Left,Right)),
-    (Turn is 0 -> retract(have(Left, Right));
-    retract(pool(Left, Right)),opponent_play),!.
+    (Turn is 0 ->
+    retract(have(Left, Right))
+    ;retract(pool(Left,Right)),opponent_play),!.
 
 unplay(Left,Right,0,Turn):-
     end_left(Right),
@@ -120,14 +122,14 @@ unplay(Left,Right,0,Turn):-
     retract(played(Left,Right)),
     (Turn is 0->
     assertz(have(Left,Right))
-    ; assertz(pool(Left,Right)),opponent_steal),!.
+    ;assertz(pool(Left,Right)),opponent_steal),!.
 unplay(Left,Right,0,Turn):-
     retract(end_left(Left)),
     assertz(end_left(Right)),
     retract(played(Left,Right)),
     (Turn is 0->
     assertz(have(Left,Right))
-    ; assertz(pool(Left,Right)),opponent_steal),!.
+    ;assertz(pool(Left,Right)),opponent_steal),!.
 unplay(Left,Right,1,Turn):-
     end_right(Right),
     retract(end_right(Right)),
@@ -135,14 +137,14 @@ unplay(Left,Right,1,Turn):-
     retract(played(Left,Right)),
     (Turn is 0->
     assertz(have(Left,Right))
-    ; assertz(pool(Left,Right)),opponent_steal),!.
+    ;assertz(pool(Left,Right)),opponent_steal),!.
 unplay(Left,Right,1,Turn):-
     retract(end_right(Left)),
     assertz(end_right(Right)),
     retract(played(Left,Right)),
     (Turn is 0->
     assertz(have(Left,Right))
-    ; assertz(pool(Left,Right)),opponent_steal),!.
+    ;assertz(pool(Left,Right)),opponent_steal),!.
 
 can_i_place_on(Left,Right,End):-
     have(Left,Right),
@@ -177,7 +179,7 @@ possible_plays(Pieces):-
     findall([Left,Right], have(Left,Right),Pieces),!.
 possible_plays(Pieces):-
     setof([Left,Right,End], (have(Left,Right),can_i_place_on(Left,Right,End)),Pieces),!.
-possible_plays([]).
+possible_plays([]):-!.
 
 heuristic(1).
 
@@ -233,13 +235,397 @@ for_each_play([[Left,Right,End|_]|U],1,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax
     (var(DoLeft),ActualMax is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true)
     ;(var(DoLeft),NewBeta is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true),ActualMax=NewBeta).
 
-
 choose(Heuristic,DoLeft,DoRight,DoEnd):-
     alphabeta(0,5,-2,2,0,Heuristic,DoLeft,DoRight,DoEnd).
 
+opponent_pool(0,0).
+opponent_pool(0,1).
+opponent_pool(0,2).
+opponent_pool(0,3).
+opponent_pool(0,4).
+opponent_pool(0,5).
+opponent_pool(0,6).
+opponent_pool(1,1).
+opponent_pool(1,2).
+opponent_pool(1,3).
+opponent_pool(1,4).
+opponent_pool(1,5).
+opponent_pool(1,6).
+opponent_pool(2,2).
+opponent_pool(2,3).
+opponent_pool(2,4).
+opponent_pool(2,5).
+opponent_pool(2,6).
+opponent_pool(3,3).
+opponent_pool(3,4).
+opponent_pool(3,5).
+opponent_pool(3,6).
+opponent_pool(4,4).
+opponent_pool(4,5).
+opponent_pool(4,6).
+opponent_pool(5,5).
+opponent_pool(5,6).
+opponent_pool(6,6).
 
+pieces_own(7).
 
+opponent_opponent_play:-
+    pieces_own(X),
+    Y is X-1,
+    retract(pieces_own(X)),
+    assertz(pieces_own(Y)).
 
+opponent_opponent_steal:-
+    pieces_own(X),
+    Y is X+1,
+    retract(pieces_own(X)),
+    assertz(pieces_own(Y)).
+
+opponent_own_steal(Left, Right):-
+    assertz(opponent_have(Left,Right)),
+    retract(opponent_pool(Left,Right)).
+
+opponent_take([]):-!.
+opponent_take([[Left,Right|_]|L]):-
+    Left>Right,
+    assertz(opponent_have(Right, Left)),
+    retract(opponent_pool(Right, Left)),
+    opponent_take(L),
+    !.
+opponent_take([[Left,Right|_]|L]):-
+    assertz(opponent_have(Left, Right)),
+    retract(opponent_pool(Left, Right)),
+    opponent_take(L).
+
+opponent_can_i_place_on(Left,Right,End):-
+    opponent_have(Left,Right),
+    (opponent_end_left(Left);opponent_end_left(Right)),
+    End=0.
+opponent_can_i_place_on(Left,Right,End):-
+    opponent_have(Left,Right),
+    (opponent_end_right(Left);opponent_end_right(Right)),
+    End=1.
+
+opponent_can_opponent_place_on(Left,Right,End):-
+    not(pieces_own(0)),
+    opponent_pool(Left,Right),
+    (opponent_end_left(Left);opponent_end_left(Right)),
+    End=0.
+opponent_can_opponent_place_on(Left,Right,End):-
+    not(pieces_own(0)),
+    opponent_pool(Left,Right),
+    (opponent_end_right(Left);opponent_end_right(Right)),
+    End=1.
+
+opponent_opponent_possible_plays(Pieces):-
+    not(opponent_end_left(_)),
+    findall([Left,Right],opponent_pool(Left,Right),Pieces),!.
+opponent_opponent_possible_plays(Pieces):-
+    setof([Left, Right,End], (opponent_pool(Left,Right),opponent_can_opponent_place_on(Left,Right,End)),Pieces),!.
+opponent_opponent_possible_plays([]).
+
+%My possible plays
+enemy_possible_plays(Pieces):-
+    not(opponent_end_left(_)),
+    findall([Left,Right], opponent_have(Left,Right),Pieces),!.
+enemy_possible_plays(Pieces):-
+    setof([Left,Right,End], (opponent_have(Left,Right),opponent_can_i_place_on(Left,Right,End)),Pieces),!.
+enemy_possible_plays([]):-!.
+
+%Pieces in pool
+opponent_pool_pieces(Pieces):-
+    findall([Left,Right], (opponent_pool(Left,Right)),Pieces).
+
+%End: 0,1
+%alphabeta(Left,Right,End,Depth,MaxDepth,Alpha,Beta,Turn,Heuristic).
+%Reach Max Depth
+opponent_alphabeta(Depth,Depth,_,_,_,Heuristic,_,_,_):-
+    heuristic(Heuristic),
+    !.
+opponent_alphabeta(_,_,_,_,_,Heuristic,_,_,_):-
+    pieces_own(P),
+    (not(opponent_have(_,_)),P>0->
+    Heuristic=1
+    ;(opponent_have(_,_),!,P==0->
+     Heuristic=(-1)
+     ;(enemy_possible_plays(Pieces),
+      opponent_opponent_possible_plays(OpponentPieces),
+       Pieces==[],
+       OpponentPieces==[]->Heuristic=0;false))),!.
+%Win,Lose,Draw
+opponent_alphabeta(Depth,MaxDepth,Alpha,Beta,0,Heuristic,DoLeft,DoRight,DoEnd):-
+    opponent_opponent_possible_plays(Plays),
+    NewDepth is Depth+1,
+    opponent_for_each_play(Plays,0,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,NewDepth,MaxDepth),
+    Heuristic=ActualMax,
+    !.
+opponent_alphabeta(Depth,MaxDepth,Alpha,Beta,1,Heuristic,DoLeft,DoRight,DoEnd):-
+    enemy_possible_plays(Plays),
+    NewDepth is Depth+1,
+    opponent_for_each_play(Plays,1,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,NewDepth,MaxDepth),
+    Heuristic=ActualMax,
+    !.
+
+opponent_for_each_play([],0,_,_,_,Alpha,_,Alpha,_,_):-!.
+opponent_for_each_play([[Left,Right,End|_]|U],0,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,Depth,MaxDepth):-
+    opponent_play(Left,Right,End,0),
+    opponent_alphabeta(Depth,MaxDepth,Alpha,Beta,1,Heuristic,_,_,_),
+    max(Alpha,Heuristic,NewAlpha),
+    opponent_unplay(Left,Right,End,0),
+    (Beta>NewAlpha->
+    opponent_for_each_play(U,0,DoLeft,DoRight,DoEnd,NewAlpha,Beta,ActualMax,Depth,MaxDepth),
+    (var(DoLeft),ActualMax is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true)
+    ;(var(DoLeft),NewAlpha is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true),ActualMax=NewAlpha).
+opponent_for_each_play([],1,_,_,_,_,Beta,Beta,_,_):-!.
+opponent_for_each_play([[Left,Right,End|_]|U],1,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,Depth,MaxDepth):-
+    opponent_play(Left,Right,End,1),
+    opponent_alphabeta(Depth,MaxDepth,Alpha,Beta,0,Heuristic,_,_,_),
+    min(Beta,Heuristic,NewBeta),
+    opponent_unplay(Left,Right,End,1),
+    (NewBeta>Alpha->
+    opponent_for_each_play(U,1,DoLeft,DoRight,DoEnd,Alpha,NewBeta,ActualMax,Depth,MaxDepth),
+    (var(DoLeft),ActualMax is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true)
+    ;(var(DoLeft),NewBeta is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true),ActualMax=NewBeta).
+
+opponent_play(Left,Right,0,Turn):-
+    opponent_end_left(Left),
+    retract(opponent_end_left(Left)),
+    assertz(opponent_end_left(Right)),
+    assertz(opponent_played(Left,Right)),
+    (Turn is 0 ->
+    retract(opponent_pool(Left,Right)),opponent_opponent_play
+    ;retract(opponent_have(Left, Right))),!.
+opponent_play(Left,Right,0,Turn):-
+    retract(opponent_end_left(Right)),
+    assertz(opponent_end_left(Left)),
+    assertz(opponent_played(Left,Right)),
+    (Turn is 0 ->
+    retract(opponent_pool(Left,Right)),opponent_opponent_play
+    ;retract(opponent_have(Left, Right))),!.
+opponent_play(Left,Right,1,Turn):-
+    opponent_end_right(Right),
+    retract(opponent_end_right(Right)),
+    assertz(opponent_end_right(Left)),
+    assertz(opponent_played(Left,Right)),
+    (Turn is 0 ->
+     retract(opponent_pool(Left,Right)),opponent_opponent_play
+    ;retract(opponent_have(Left, Right))),!.
+opponent_play(Left,Right,1,Turn):-
+    retract(opponent_end_right(Left)),
+    assertz(opponent_end_right(Right)),
+    assertz(opponent_played(Left,Right)),
+    (Turn is 0 ->
+    retract(opponent_pool(Left,Right)),opponent_opponent_play
+    ;retract(opponent_have(Left, Right))),!.
+opponent_play(Left, Right, -1,Turn):-
+    assertz(opponent_end_left(Left)),
+    assertz(opponent_end_right(Right)),
+    assertz(opponent_played(Left,Right)),
+    (Turn is 0 ->
+     retract(opponent_pool(Left,Right)),opponent_opponent_play
+    ;retract(opponent_have(Left, Right))),!.
+
+opponent_unplay(Left,Right,0,Turn):-
+    opponent_end_left(Right),
+    retract(opponent_end_left(Right)),
+    assertz(opponent_end_left(Left)),
+    retract(opponent_played(Left,Right)),
+    (Turn is 0->
+     assertz(opponent_pool(Left,Right)),opponent_opponent_steal
+    ; assertz(opponent_have(Left,Right))),!.
+opponent_unplay(Left,Right,0,Turn):-
+    retract(opponent_end_left(Left)),
+    assertz(opponent_end_left(Right)),
+    retract(opponent_played(Left,Right)),
+    (Turn is 0->
+     assertz(opponent_pool(Left,Right)),opponent_opponent_steal
+    ; assertz(opponent_have(Left,Right))),!.
+opponent_unplay(Left,Right,1,Turn):-
+    opponent_end_right(Right),
+    retract(opponent_end_right(Right)),
+    assertz(opponent_end_right(Left)),
+    retract(opponent_played(Left,Right)),
+    (Turn is 0->
+     assertz(opponent_pool(Left,Right)),opponent_opponent_steal
+    ; assertz(opponent_have(Left,Right))),!.
+opponent_unplay(Left,Right,1,Turn):-
+    retract(opponent_end_right(Left)),
+    assertz(opponent_end_right(Right)),
+    retract(opponent_played(Left,Right)),
+    (Turn is 0->
+     assertz(opponent_pool(Left,Right)),opponent_opponent_steal
+    ; assertz(opponent_have(Left,Right))),!.
+
+opponent_choose(Heuristic,DoLeft,DoRight,DoEnd):-
+    opponent_alphabeta(0,5,-2,2,1,Heuristic,DoLeft,DoRight,DoEnd).
+
+pick_pieces(0,_,[]):-!.
+pick_pieces(Amount,Pool,[Piece|Picking]):-
+    length(Pool,Len),
+    Amount=<Len,
+    random_select(Piece,Pool,NewPool),
+    NewAmount is Amount-1,
+    pick_pieces(NewAmount,NewPool,Picking),!.
+
+hands(Pieces):-
+    findall([Left,Right], (have(Left,Right);opponent_have(Left,Right)),Pieces).
+
+intersected_pools(Pieces):-
+    findall([Left,Right],(pool(Left,Right),opponent_pool(Left,Right)),Pieces).
+
+open_own_hand:-
+    intersected_pools(Pieces),
+    pick_pieces(7,Pieces,Hand),
+    take(Hand).
+
+open_opponent_hand:-
+    intersected_pools(Pieces),
+    pick_pieces(7,Pieces,Hand),
+    opponent_take(Hand).
+
+open_hands:-
+    open_own_hand,
+    open_opponent_hand.
+
+pick_piece(0):-
+    intersected_pools(Pieces),
+    pick_pieces(1,Pieces,Hand),
+    take(Hand),
+    opponent_opponent_steal.
+
+pick_piece(1):-
+    intersected_pools(Pieces),
+    pick_pieces(1,Pieces,Hand),
+    opponent_take(Hand),
+    opponent_steal.
+
+largest_pieces_left([],LeftMax,LeftMax,[]):-!.
+largest_pieces_left([[Left,Right|_]|U],ActualLeftMax,LeftMax,AppendedList):-
+    max(Left,ActualLeftMax,NewActualLeftMax),
+    largest_pieces_left(U,NewActualLeftMax,LeftMax,ActualList),
+    (Left is LeftMax->AppendedList = [[Left,Right]|ActualList]
+    ;AppendedList = ActualList),
+    !.
+largest_pieces_right([],RightMax,RightMax,[]):-!.
+largest_pieces_right([[Left,Right|_]|U],ActualRightMax,RightMax,AppendedList):-
+    max(Right,ActualRightMax,NewActualRightMax),
+    largest_pieces_right(U,NewActualRightMax,RightMax,ActualList),
+    (Right is RightMax->AppendedList = [[Left,Right]|ActualList]
+    ;AppendedList = ActualList),
+    !.
+
+first_piece([[Left,Right|_]|_],Left,Right).
+
+select_first_move(Left,Right,Turn):-
+    hands(Pieces),
+    largest_pieces_left(Pieces,-1,_,LargestLeftPieces),
+    largest_pieces_right(LargestLeftPieces,-1,_,LargestPieces),
+    first_piece(LargestPieces,Left,Right),
+    (have(Left,Right)->Turn=0;Turn=1).
+
+inverse_turn(0,1).
+inverse_turn(1,0).
+
+win:-write("Win"),!.
+
+lose:-write("Lose"),!.
+
+draw:-write("Draw"),!.
+
+opened_game_logic(0):-
+    pieces_opponent(P),
+    not(have(_,_)),P>0,
+    win,!.
+opened_game_logic(0):-
+    pieces_opponent(P),
+    have(_,_),P==0,!,
+    lose,!.
+opened_game_logic(0):-
+    possible_plays(Plays),
+    enemy_possible_plays(Opponent_Plays),
+    intersected_pools(Pool),
+    Plays==[],
+    Opponent_Plays==[],
+    Pool==[],
+    draw.
+opened_game_logic(0):-
+    possible_plays(Pieces),
+    length(Pieces,Length),
+    pool_pieces(Pool),
+    length(Pool,PLength),
+    pieces_opponent(P),
+    (Length==0->(PLength==P->
+    opened_game_logic(1);pick_piece(0),opened_game_logic(0));
+    (Length==1->
+    nth0(0,Pieces,Play),
+     nth0(0,Play,Left),
+    nth0(1,Play,Right),
+    nth0(2,Play,End),
+    write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
+    write(0),nl,
+    play(Left,Right,End,0),
+    opponent_play(Left,Right,End,0),
+    opened_game_logic(1);
+    choose(_,Left,Right,End),
+    write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
+    write(0),nl,
+    play(Left,Right,End,0),
+    opponent_play(Left,Right,End,0),
+    opened_game_logic(1))).
+opened_game_logic(1):-
+    pieces_own(P),
+    not(opponent_have(_,_)),P>0,
+    lose,!.
+opened_game_logic(1):-
+    pieces_own(P),
+    opponent_have(_,_),P==0,!,
+    win,!.
+opened_game_logic(1):-
+    possible_plays(Plays),
+    enemy_possible_plays(Opponent_Plays),
+    intersected_pools(Pool),
+    Plays==[],
+    Opponent_Plays==[],
+    Pool==[],
+    draw.
+opened_game_logic(1):-
+    enemy_possible_plays(Pieces),
+    length(Pieces,Length),
+    opponent_pool_pieces(Pool),
+    length(Pool,PLength),
+    pieces_own(P),
+    (Length==0->(PLength==P->
+    opened_game_logic(0);pick_piece(1),opened_game_logic(1));
+    (Length==1->
+    nth0(0,Pieces,Play),
+     nth0(0,Play,Left),
+    nth0(1,Play,Right),
+    nth0(2,Play,End),
+    write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
+    write(1),nl,
+    play(Left,Right,End,1),
+    opponent_play(Left,Right,End,1),
+    opened_game_logic(0);
+    opponent_choose(_,Left,Right,End),
+    write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
+    write(1),nl,
+    play(Left,Right,End,1),
+    opponent_play(Left,Right,End,1),
+    opened_game_logic(0))).
+
+reset_game:-
+    !.
+
+simulated_game:-
+    open_hands,
+    select_first_move(Left,Right,Turn),
+    write(Left),write(", "),write(Right),write(", "),write(-1),write(", "),
+    write(Turn),nl,
+    play(Left,Right,-1,Turn),
+    opponent_play(Left,Right,-1,Turn),
+    inverse_turn(Turn,Inverse),
+    opened_game_logic(Inverse),
+    !.
 
 
 
