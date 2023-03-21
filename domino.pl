@@ -187,13 +187,83 @@ possible_plays(Pieces):-
     setof([Left,Right,End], (have(Left,Right),can_i_place_on(Left,Right,End)),Pieces),!.
 possible_plays([]):-!.
 
-heuristic(1).
+factorial(1,1):-!.
+factorial(X,Y) :-
+	X > 1,
+	X1 is X-1,
+	factorial(X1,Y1),
+	Y is X * Y1.
+
+combinacion(X,Y,C) :-
+	factorial(X,Num),
+	R is X-Y,
+	factorial(R,Facr),
+	factorial(Y,Facy),
+	Den is Facr * Facy,
+	C is Num/Den.
+
+check_steal_plays([],Count,Count):-!.
+check_steal_plays([[Left,Right,End|_]|Rest],Count,Num):-
+    play(Left,Right,End,1),
+    possible_plays(Plays),
+    (Plays==[]->unplay(Left,Right,End,1),NewCount is Count+1,check_steal_plays(Rest,NewCount,Num)
+    ;unplay(Left,Right,End,1),check_steal_plays(Rest,Count,Num)).
+
+opponent_check_steal_plays([],Count,Count):-!.
+opponent_check_steal_plays([[Left,Right,End|_]|Rest],Count,Num):-
+    play(Left,Right,End,0),
+    opponent_possible_plays(Plays),
+    (Plays==[]->unplay(Left,Right,End,0),NewCount is Count+1,opponent_check_steal_plays(Rest,NewCount,Num)
+    ;unplay(Left,Right,End,0),opponent_check_steal_plays(Rest,Count,Num)).
+
+calculaP3(0,P3):-
+    possible_plays(Plays),
+    opponent_check_steal_plays(Plays,0,Num),
+    length(Plays,Tam),
+    (Tam==0->P3 is 0;P3 is ((Num/Tam))).
+calculaP3(1,P3):-
+    opponent_possible_plays(Plays),
+    check_steal_plays(Plays,0,Num),
+    length(Plays,Tam),
+    (Tam==0->P3 is 0;P3 is (-(Num/Tam))).
+
+calculaP2(0,0):-!.
+calculaP2(1,P2):-
+    opponent_possible_plays(PiecesOpp),
+    length(PiecesOpp,SonsOpp),
+    pool_pieces(PiecesTodo),
+    length(PiecesTodo,Quedan),
+    combinacion(Quedan-SonsOpp, SonsOpp, N),
+    combinacion(Quedan,SonsOpp, D),
+    P2 is (N/D).
+
+check_loss_plays([],Count,Count):-!.
+check_loss_plays([[Left,Right,End|_]|Rest],Count,Num):-
+    play(Left,Right,End,1),
+    pieces_opponent(P),
+    (P==0->unplay(Left,Right,End,1),NewCount is Count+1,check_loss_plays(Rest,NewCount,Num)
+    ;unplay(Left,Right,End,1),check_loss_plays(Rest,Count,Num)).
+
+calculaP1(1,P1):-
+    opponent_possible_plays(Plays),
+    check_loss_plays(Plays,0,Num),
+    length(Plays,Tam),
+    (Tam==0->P1 is 0;P1 is (-(Num/Tam))).
+
+calculaP1(0,0):-!.
+
+
+heuristic(Turn,Vh):-
+	%contar numero de hijos del nodo actual
+	%estoy suponiendo que el numero de hijos del nodo es opponent_possible_plays
+	calculaP1(Turn,P1),
+        (P1==0->calculaP2(Turn,P2),calculaP3(Turn,P3),Vh is (P2*0.5+P3*0.5);Vh is P1).
 
 %End: 0,1
 %alphabeta(Left,Right,End,Depth,MaxDepth,Alpha,Beta,Turn,Heuristic).
 %Reach Max Depth
-alphabeta(Depth,Depth,_,_,_,Heuristic,_,_,_):-
-    heuristic(Heuristic),
+alphabeta(Depth,Depth,_,_,Turn,Heuristic,_,_,_):-
+    heuristic(Turn,Heuristic),
     !.
 alphabeta(_,_,_,_,_,Heuristic,_,_,_):-
     pieces_opponent(P),
@@ -345,15 +415,73 @@ opponent_pool_pieces(Pieces):-
 %End: 0,1
 %alphabeta(Left,Right,End,Depth,MaxDepth,Alpha,Beta,Turn,Heuristic).
 %Reach Max Depth
-opponent_alphabeta(Depth,Depth,_,_,_,Heuristic,_,_,_):-
-    heuristic(Heuristic),
+
+enemy_check_steal_plays([],Count,Count):-!.
+enemy_check_steal_plays([[Left,Right,End|_]|Rest],Count,Num):-
+    opponent_play(Left,Right,End,1),
+    opponent_opponent_possible_plays(Plays),
+    (Plays==[]->opponent_unplay(Left,Right,End,1),NewCount is Count+1,enemy_check_steal_plays(Rest,NewCount,Num)
+    ;opponent_unplay(Left,Right,End,1),enemy_check_steal_plays(Rest,Count,Num)).
+
+opponent_opponent_check_steal_plays([],Count,Count):-!.
+opponent_opponent_check_steal_plays([[Left,Right,End|_]|Rest],Count,Num):-
+    opponent_play(Left,Right,End,0),
+    enemy_possible_plays(Plays),
+    (Plays==[]->opponent_unplay(Left,Right,End,0),NewCount is Count+1,opponent_opponent_check_steal_plays(Rest,NewCount,Num)
+    ;opponent_unplay(Left,Right,End,0),opponent_opponent_check_steal_plays(Rest,Count,Num)).
+
+opponent_calculaP3(0,P3):-
+    opponent_opponent_possible_plays(Plays),
+    opponent_opponent_check_steal_plays(Plays,0,Num),
+    length(Plays,Tam),
+    (Tam==0->P3 is 0; P3 is ((Num/Tam))).
+opponent_calculaP3(1,P3):-
+    enemy_possible_plays(Plays),
+    enemy_check_steal_plays(Plays,0,Num),
+    length(Plays,Tam),
+    (Tam==0->P3 is 0;P3 is (-(Num/Tam))).
+
+opponent_calculaP2(1,0):-!.
+opponent_calculaP2(0,P2):-
+    opponent_opponent_possible_plays(PiecesOpp),
+    length(PiecesOpp,SonsOpp),
+    opponent_pool_pieces(PiecesTodo),
+    length(PiecesTodo,Quedan),
+    combinacion(Quedan-SonsOpp, SonsOpp, N),
+    combinacion(Quedan,SonsOpp, D),
+    P2 is (-(N/D)).
+
+opponent_check_loss_plays([],Count,Count):-!.
+opponent_check_loss_plays([[Left,Right,End|_]|Rest],Count,Num):-
+    opponent_play(Left,Right,End,1),
+    pieces_own(P),
+    (P==0->opponent_unplay(Left,Right,End,1),NewCount is Count+1,opponent_check_loss_plays(Rest,NewCount,Num)
+    ;opponent_unplay(Left,Right,End,1),opponent_check_loss_plays(Rest,Count,Num)).
+
+opponent_calculaP1(0,P1):-
+    opponent_opponent_possible_plays(Plays),
+    opponent_check_loss_plays(Plays,0,Num),
+    length(Plays,Tam),
+    (Tam==0->P1 is 0;P1 is (-(Num/Tam))).
+opponent_calculaP1(1,0):-!.
+
+
+opponent_heuristic(Turn,Vh):-
+	%contar numero de hijos del nodo actual
+	%estoy suponiendo que el numero de hijos del nodo es opponent_possible_plays
+	opponent_calculaP1(Turn,P1),
+        (P1==0->opponent_calculaP2(Turn,P2),opponent_calculaP3(Turn,P3),Vh is (P2*0.5+P3*0.5);Vh is P1).
+
+
+opponent_alphabeta(Depth,Depth,_,_,Turn,Heuristic,_,_,_):-
+    opponent_heuristic(Turn,Heuristic),
     !.
 opponent_alphabeta(_,_,_,_,_,Heuristic,_,_,_):-
     pieces_own(P),
     (not(opponent_have(_,_)),P>0->
-    Heuristic=1
+    Heuristic=(-1)
     ;(opponent_have(_,_),!,P==0->
-     Heuristic=(-1)
+     Heuristic=1
      ;(enemy_possible_plays(Pieces),
       opponent_opponent_possible_plays(OpponentPieces),
        Pieces==[],
@@ -567,7 +695,7 @@ store_keys([Key|Rest],0):-
     !.
 
 store_keys([],-1):-!.
-store_keys([Key|Rest],0):-
+store_keys([Key|Rest],-1):-
     (approximation(Key,Wins,Total)->
     NewTotal is Total+1,
     with_mutex(domino_db,
@@ -582,7 +710,7 @@ win:-
     get_keys(Keys),
     opponent_get_keys(OpponentKeys),
     store_keys(Keys,1),
-    store_keys(OpponentKeys,1),
+    store_keys(OpponentKeys,-1),
     !.
 
 lose:-
@@ -590,7 +718,7 @@ lose:-
     get_keys(Keys),
     opponent_get_keys(OpponentKeys),
     store_keys(Keys,-1),
-    store_keys(OpponentKeys,-1),
+    store_keys(OpponentKeys,1),
     !.
 
 draw:-
