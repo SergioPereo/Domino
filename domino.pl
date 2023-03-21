@@ -1,5 +1,11 @@
-:-dynamic have/2,end_left/1,end_right/1,played/2,pool/2,pieces_opponent/1,opponent_have/2,opponent_pool/2,pieces_own/1,opponent_end_left/1,opponent_end_right/1,opponent_played/2.
+:-module(domino_db,[]).
+:-dynamic have/2,end_left/1,end_right/1,played/2,pool/2,pieces_opponent/1,opponent_have/2,opponent_pool/2,pieces_own/1,opponent_end_left/1,opponent_end_right/1,opponent_played/2,saved_state/1,opponent_saved_state/1.
 :-use_module(library(random)).
+:-use_module(library(persistency)).
+
+:-persistent
+    approximation(key:atom,wins:integer,total_plays:integer).
+:-db_attach('approximation.journal',[]),db_sync(always).
 
 max(A,B,Max):-
     A>B,Max is A,!.
@@ -236,7 +242,7 @@ for_each_play([[Left,Right,End|_]|U],1,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax
     ;(var(DoLeft),NewBeta is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true),ActualMax=NewBeta).
 
 choose(Heuristic,DoLeft,DoRight,DoEnd):-
-    alphabeta(0,5,-2,2,0,Heuristic,DoLeft,DoRight,DoEnd).
+    alphabeta(0,8,-2,2,0,Heuristic,DoLeft,DoRight,DoEnd).
 
 opponent_pool(0,0).
 opponent_pool(0,1).
@@ -457,7 +463,7 @@ opponent_unplay(Left,Right,1,Turn):-
     ; assertz(opponent_have(Left,Right))),!.
 
 opponent_choose(Heuristic,DoLeft,DoRight,DoEnd):-
-    opponent_alphabeta(0,5,-2,2,1,Heuristic,DoLeft,DoRight,DoEnd).
+    opponent_alphabeta(0,8,-2,2,1,Heuristic,DoLeft,DoRight,DoEnd).
 
 pick_pieces(0,_,[]):-!.
 pick_pieces(Amount,Pool,[Piece|Picking]):-
@@ -468,7 +474,13 @@ pick_pieces(Amount,Pool,[Piece|Picking]):-
     pick_pieces(NewAmount,NewPool,Picking),!.
 
 hands(Pieces):-
-    findall([Left,Right], (have(Left,Right);opponent_have(Left,Right)),Pieces).
+    findall([Left,Right],(have(Left,Right);opponent_have(Left,Right)),Pieces).
+
+hand(Pieces):-
+    findall([Left,Right],have(Left,Right),Pieces).
+
+opponent_hand(Pieces):-
+    findall([Left,Right],opponent_have(Left,Right),Pieces).
 
 intersected_pools(Pieces):-
     findall([Left,Right],(pool(Left,Right),opponent_pool(Left,Right)),Pieces).
@@ -526,11 +538,68 @@ select_first_move(Left,Right,Turn):-
 inverse_turn(0,1).
 inverse_turn(1,0).
 
-win:-write("Win"),!.
+get_keys(Keys):-
+    findall(Key,saved_state(Key),Keys).
 
-lose:-write("Lose"),!.
+opponent_get_keys(Keys):-
+    findall(Key,opponent_saved_state(Key),Keys).
 
-draw:-write("Draw"),!.
+store_keys([],1):-!.
+store_keys([Key|Rest],1):-
+    (approximation(Key,Wins,Total)->
+    NewWins is Wins+1,
+    NewTotal is Total+1,
+    with_mutex(domino_db,
+              (retract_approximation(Key,Wins,Total),
+               assert_approximation(Key,NewWins,NewTotal)))
+    ;assert_approximation(Key,1,1)),
+    store_keys(Rest,1),
+    !.
+store_keys([],0):-!.
+store_keys([Key|Rest],0):-
+    (approximation(Key,Wins,Total)->
+    NewTotal is Total+1,
+    with_mutex(domino_db,
+              (retract_approximation(Key,Wins,Total),
+               assert_approximation(Key,Wins,NewTotal)))
+    ;assert_approximation(Key,0,1)),
+    store_keys(Rest,0),
+    !.
+
+store_keys([],-1):-!.
+store_keys([Key|Rest],0):-
+    (approximation(Key,Wins,Total)->
+    NewTotal is Total+1,
+    with_mutex(domino_db,
+              (retract_approximation(Key,Wins,Total),
+               assert_approximation(Key,Wins,NewTotal)))
+    ;assert_approximation(Key,0,1)),
+    store_keys(Rest,-1),
+    !.
+
+win:-
+    write("Win"),nl,
+    get_keys(Keys),
+    opponent_get_keys(OpponentKeys),
+    store_keys(Keys,1),
+    store_keys(OpponentKeys,1),
+    !.
+
+lose:-
+    write("Lose"),nl,
+    get_keys(Keys),
+    opponent_get_keys(OpponentKeys),
+    store_keys(Keys,-1),
+    store_keys(OpponentKeys,-1),
+    !.
+
+draw:-
+    write("Draw"),nl,
+    get_keys(Keys),
+    opponent_get_keys(OpponentKeys),
+    store_keys(Keys,0),
+    store_keys(OpponentKeys,0),
+    !.
 
 opened_game_logic(0):-
     pieces_opponent(P),
@@ -563,12 +632,14 @@ opened_game_logic(0):-
     nth0(2,Play,End),
     write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
     write(0),nl,
+    save_state(Left,Right,End),
     play(Left,Right,End,0),
     opponent_play(Left,Right,End,0),
     opened_game_logic(1);
     choose(_,Left,Right,End),
     write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
     write(0),nl,
+    save_state(Left,Right,End),
     play(Left,Right,End,0),
     opponent_play(Left,Right,End,0),
     opened_game_logic(1))).
@@ -603,17 +674,143 @@ opened_game_logic(1):-
     nth0(2,Play,End),
     write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
     write(1),nl,
+    opponent_save_state(Left,Right,End),
     play(Left,Right,End,1),
     opponent_play(Left,Right,End,1),
     opened_game_logic(0);
     opponent_choose(_,Left,Right,End),
     write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
     write(1),nl,
+    opponent_save_state(Left,Right,End),
     play(Left,Right,End,1),
     opponent_play(Left,Right,End,1),
     opened_game_logic(0))).
 
+pieces_played(Played):-
+    findall([Left,Right],played(Left,Right),Played).
+
+opponent_pieces_played(Played):-
+    findall([Left,Right],opponent_played(Left,Right),Played).
+
+pieces_to_string([],""):-!.
+pieces_to_string([A|U],String):-
+    atomics_to_string(A,',',PieceString),
+    pieces_to_string(U,LastString),
+    (LastString==""->String=PieceString
+    ;atomics_to_string([PieceString,LastString],'_',String)),
+    !.
+
+get_state(Left,Right,End,State):-
+    hand(Hand),
+    pieces_to_string(Hand,HandString),
+    pool_pieces(Pool),
+    pieces_to_string(Pool,PoolString),
+    pieces_played(Played),
+    pieces_to_string(Played,PlayedString),
+    end_left(EL),
+    end_right(ER),
+    pieces_opponent(PO),
+    atomics_to_string([Left,Right,End],',',PTP),
+    atomics_to_string([HandString,PoolString,EL,ER,PlayedString,PO,PTP],';',State),
+    !.
+
+opponent_get_state(Left,Right,End,State):-
+    opponent_hand(Hand),
+    pieces_to_string(Hand,HandString),
+    opponent_pool_pieces(Pool),
+    pieces_to_string(Pool,PoolString),
+    opponent_pieces_played(Played),
+    pieces_to_string(Played,PlayedString),
+    opponent_end_left(EL),
+    opponent_end_right(ER),
+    pieces_own(PO),
+    atomics_to_string([Left,Right,End],',',PTP),
+    atomics_to_string([HandString,PoolString,EL,ER,PlayedString,PO,PTP],';',State),
+    !.
+
+save_state(Left,Right,End):-
+    get_state(Left,Right,End,State),
+    variant_sha1(State,Key),
+    assertz(saved_state(Key)).
+
+opponent_save_state(Left,Right,End):-
+    opponent_get_state(Left,Right,End,State),
+    variant_sha1(State,Key),
+    assertz(opponent_saved_state(Key)).
+
 reset_game:-
+    (saved_state(_),!->retractall(saved_state(_));true),
+    (opponent_saved_state(_),!->retractall(opponent_saved_state(_));true),
+    (have(_,_),!->retractall(have(_,_));true),
+    (end_left(_)->retractall(end_left(_));true),
+    (end_right(_)->retractall(end_right(_));true),
+    (played(_,_),!->retractall(played(_,_));true),
+    (pool(_,_),!->retractall(pool(_,_));true),
+    (pieces_opponent(_)->retractall(pieces_opponent(_));true),
+    (opponent_have(_,_),!->retractall(opponent_have(_,_));true),
+    (opponent_pool(_,_),!->retractall(opponent_pool(_,_));true),
+    (pieces_own(_)->retractall(pieces_own(_));true),
+    (opponent_end_left(_)->retractall(opponent_end_left(_));true),
+    (opponent_end_right(_)->retractall(opponent_end_right(_));true),
+    (opponent_played(_,_),!->retractall(opponent_played(_,_));true),
+    assertz(pool(0,0)),
+    assertz(pool(0,1)),
+    assertz(pool(0,2)),
+    assertz(pool(0,3)),
+    assertz(pool(0,4)),
+    assertz(pool(0,5)),
+    assertz(pool(0,6)),
+    assertz(pool(1,1)),
+    assertz(pool(1,2)),
+    assertz(pool(1,3)),
+    assertz(pool(1,4)),
+    assertz(pool(1,5)),
+    assertz(pool(1,6)),
+    assertz(pool(2,2)),
+    assertz(pool(2,3)),
+    assertz(pool(2,4)),
+    assertz(pool(2,5)),
+    assertz(pool(2,6)),
+    assertz(pool(3,3)),
+    assertz(pool(3,4)),
+    assertz(pool(3,5)),
+    assertz(pool(3,6)),
+    assertz(pool(4,4)),
+    assertz(pool(4,5)),
+    assertz(pool(4,6)),
+    assertz(pool(5,5)),
+    assertz(pool(5,6)),
+    assertz(pool(6,6)),
+    assertz(pieces_opponent(7)),
+    assertz(opponent_pool(0,0)),
+    assertz(opponent_pool(0,1)),
+    assertz(opponent_pool(0,2)),
+    assertz(opponent_pool(0,3)),
+    assertz(opponent_pool(0,4)),
+    assertz(opponent_pool(0,5)),
+    assertz(opponent_pool(0,6)),
+    assertz(opponent_pool(1,1)),
+    assertz(opponent_pool(1,2)),
+    assertz(opponent_pool(1,3)),
+    assertz(opponent_pool(1,4)),
+    assertz(opponent_pool(1,5)),
+    assertz(opponent_pool(1,6)),
+    assertz(opponent_pool(2,2)),
+    assertz(opponent_pool(2,3)),
+    assertz(opponent_pool(2,4)),
+    assertz(opponent_pool(2,5)),
+    assertz(opponent_pool(2,6)),
+    assertz(opponent_pool(3,3)),
+    assertz(opponent_pool(3,4)),
+    assertz(opponent_pool(3,5)),
+    assertz(opponent_pool(3,6)),
+    assertz(opponent_pool(4,4)),
+    assertz(opponent_pool(4,5)),
+    assertz(opponent_pool(4,6)),
+    assertz(opponent_pool(5,5)),
+    assertz(opponent_pool(5,6)),
+    assertz(opponent_pool(6,6)),
+    assertz(pieces_own(7)),
     !.
 
 simulated_game:-
@@ -626,6 +823,13 @@ simulated_game:-
     inverse_turn(Turn,Inverse),
     opened_game_logic(Inverse),
     !.
+
+simulate_games(0):-!.
+simulate_games(Games):-
+    simulated_game,
+    reset_game,
+    NewGames is Games-1,
+    simulate_games(NewGames).
 
 
 
