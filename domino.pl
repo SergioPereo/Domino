@@ -5,7 +5,7 @@
 
 :-persistent
     approximation(key:atom,wins:integer,total_plays:integer).
-:-db_attach('approximation.journal',[]),db_sync(always).
+:-db_attach('A:/ITAM/4to Semestre/Inteligencia Artificial/Proyecto 2/approximation.journal',[]),db_sync(always).
 
 max(A,B,Max):-
     A>B,Max is A,!.
