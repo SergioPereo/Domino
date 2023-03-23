@@ -5,7 +5,7 @@
 
 :-persistent
     approximation(key:atom,wins:integer,total_plays:integer).
-:-db_attach('A:/ITAM/4to Semestre/Inteligencia Artificial/Proyecto 2/approximation.journal',[]),db_sync(always).
+:-db_attach('A:/ITAM/4to Semestre/Inteligencia Artificial/Proyecto 2/approximation.journal',[]),db_sync(gc(always)).
 
 max(A,B,Max):-
     A>B,Max is A,!.
@@ -601,6 +601,9 @@ pick_pieces(Amount,Pool,[Piece|Picking]):-
     NewAmount is Amount-1,
     pick_pieces(NewAmount,NewPool,Picking),!.
 
+mule_hands(Pieces):-
+    findall([X,X],(have(X,X);opponent_have(X,X)),Pieces).
+
 hands(Pieces):-
     findall([Left,Right],(have(Left,Right);opponent_have(Left,Right)),Pieces).
 
@@ -657,11 +660,18 @@ largest_pieces_right([[Left,Right|_]|U],ActualRightMax,RightMax,AppendedList):-
 first_piece([[Left,Right|_]|_],Left,Right).
 
 select_first_move(Left,Right,Turn):-
+    mule_hands(Mules),
+    (Mules==[]->
     hands(Pieces),
     largest_pieces_left(Pieces,-1,_,LargestLeftPieces),
     largest_pieces_right(LargestLeftPieces,-1,_,LargestPieces),
     first_piece(LargestPieces,Left,Right),
-    (have(Left,Right)->Turn=0;Turn=1).
+    (have(Left,Right)->Turn=0;Turn=1)
+    ;
+    largest_pieces_left(Mules,-1,_,LargestMules),
+    first_piece(LargestMules,Left,Right),
+    (have(Left,Right)->Turn=0;Turn=1)
+    ).
 
 inverse_turn(0,1).
 inverse_turn(1,0).
@@ -679,7 +689,8 @@ store_keys([Key|Rest],1):-
     NewTotal is Total+1,
     with_mutex(domino_db,
               (retract_approximation(Key,Wins,Total),
-               assert_approximation(Key,NewWins,NewTotal)))
+               assert_approximation(Key,NewWins,NewTotal))),
+     write("It repeated"),nl
     ;assert_approximation(Key,1,1)),
     store_keys(Rest,1),
     !.
@@ -689,7 +700,8 @@ store_keys([Key|Rest],0):-
     NewTotal is Total+1,
     with_mutex(domino_db,
               (retract_approximation(Key,Wins,Total),
-               assert_approximation(Key,Wins,NewTotal)))
+               assert_approximation(Key,Wins,NewTotal))),
+     write("It repeated"),nl
     ;assert_approximation(Key,0,1)),
     store_keys(Rest,0),
     !.
@@ -700,7 +712,8 @@ store_keys([Key|Rest],-1):-
     NewTotal is Total+1,
     with_mutex(domino_db,
               (retract_approximation(Key,Wins,Total),
-               assert_approximation(Key,Wins,NewTotal)))
+               assert_approximation(Key,Wins,NewTotal))),
+     write("It repeated"),nl
     ;assert_approximation(Key,0,1)),
     store_keys(Rest,-1),
     !.
@@ -708,7 +721,9 @@ store_keys([Key|Rest],-1):-
 win:-
     write("Win"),nl,
     get_keys(Keys),
+    %write(Keys),nl,
     opponent_get_keys(OpponentKeys),
+    %write(OpponentKeys),nl,
     store_keys(Keys,1),
     store_keys(OpponentKeys,-1),
     !.
@@ -716,7 +731,9 @@ win:-
 lose:-
     write("Lose"),nl,
     get_keys(Keys),
+    %write(Keys),nl,
     opponent_get_keys(OpponentKeys),
+    %write(OpponentKeys),nl,
     store_keys(Keys,-1),
     store_keys(OpponentKeys,1),
     !.
@@ -724,7 +741,9 @@ lose:-
 draw:-
     write("Draw"),nl,
     get_keys(Keys),
+    %write(Keys),nl,
     opponent_get_keys(OpponentKeys),
+    %write(OpponentKeys),nl,
     store_keys(Keys,0),
     store_keys(OpponentKeys,0),
     !.
@@ -758,15 +777,15 @@ opened_game_logic(0):-
      nth0(0,Play,Left),
     nth0(1,Play,Right),
     nth0(2,Play,End),
-    write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
-    write(0),nl,
+    %write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
+    %write(0),nl,
     save_state(Left,Right,End),
     play(Left,Right,End,0),
     opponent_play(Left,Right,End,0),
     opened_game_logic(1);
     choose(_,Left,Right,End),
-    write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
-    write(0),nl,
+    %write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
+    %write(0),nl,
     save_state(Left,Right,End),
     play(Left,Right,End,0),
     opponent_play(Left,Right,End,0),
@@ -800,15 +819,15 @@ opened_game_logic(1):-
      nth0(0,Play,Left),
     nth0(1,Play,Right),
     nth0(2,Play,End),
-    write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
-    write(1),nl,
+    %write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
+    %write(1),nl,
     opponent_save_state(Left,Right,End),
     play(Left,Right,End,1),
     opponent_play(Left,Right,End,1),
     opened_game_logic(0);
     opponent_choose(_,Left,Right,End),
-    write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
-    write(1),nl,
+    %write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
+    %write(1),nl,
     opponent_save_state(Left,Right,End),
     play(Left,Right,End,1),
     opponent_play(Left,Right,End,1),
@@ -944,8 +963,8 @@ reset_game:-
 simulated_game:-
     open_hands,
     select_first_move(Left,Right,Turn),
-    write(Left),write(", "),write(Right),write(", "),write(-1),write(", "),
-    write(Turn),nl,
+    %write(Left),write(", "),write(Right),write(", "),write(-1),write(", "),
+    %write(Turn),nl,
     play(Left,Right,-1,Turn),
     opponent_play(Left,Right,-1,Turn),
     inverse_turn(Turn,Inverse),
@@ -957,6 +976,7 @@ simulate_games(Games):-
     simulated_game,
     reset_game,
     NewGames is Games-1,
+    write(NewGames),nl,
     simulate_games(NewGames).
 
 
