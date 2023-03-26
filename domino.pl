@@ -319,8 +319,8 @@ for_each_play([[Left,Right,End|_]|U],1,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax
     (var(DoLeft),ActualMax is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true)
     ;(var(DoLeft),NewBeta is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true),ActualMax=NewBeta).
 
-choose(Heuristic,DoLeft,DoRight,DoEnd):-
-    alphabeta(0,8,-2,2,0,Heuristic,DoLeft,DoRight,DoEnd).
+choose(MaxDepth,Heuristic,DoLeft,DoRight,DoEnd):-
+    alphabeta(0,MaxDepth,-2,2,0,Heuristic,DoLeft,DoRight,DoEnd).
 
 opponent_pool(0,0).
 opponent_pool(0,1).
@@ -791,7 +791,7 @@ opened_game_logic(0):-
     play(Left,Right,End,0),
     opponent_play(Left,Right,End,0),
     opened_game_logic(1);
-    choose(_,Left,Right,End),
+    choose(8,_,Left,Right,End),
     %write(Left),write(", "),write(Right),write(", "),write(End),write(", "),
     %write(0),nl,
     save_state(Left,Right,End),
