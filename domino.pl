@@ -289,10 +289,14 @@ alphabeta(Depth,MaxDepth,Alpha,Beta,1,Heuristic,DoLeft,DoRight,DoEnd):-
     Heuristic=ActualMax,
     !.
 
-for_each_play([],0,_,_,_,Alpha,_,Alpha,_,_):-!.
+for_each_play([],0,_,_,_,Alpha,_,Heuristic,_,_):-(Alpha == -2->heuristic(0,Heuristic);Heuristic = Alpha),!.
 for_each_play([[Left,Right,End|_]|U],0,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,Depth,MaxDepth):-
+    get_state(Left,Right,End,State),
     play(Left,Right,End,0),
-    alphabeta(Depth,MaxDepth,Alpha,Beta,1,Heuristic,_,_,_),
+    (approximation(State,Wins,Seens)->
+    Heuristic is (Wins/Seens),
+     write("Seen before"),nl
+    ;alphabeta(Depth,MaxDepth,Alpha,Beta,1,Heuristic,_,_,_)),
     max(Alpha,Heuristic,NewAlpha),
     unplay(Left,Right,End,0),
     (Beta>NewAlpha->
@@ -300,10 +304,14 @@ for_each_play([[Left,Right,End|_]|U],0,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax
     (var(DoLeft),ActualMax is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true)
     ;(var(DoLeft),NewAlpha is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true),ActualMax=NewAlpha).
 
-for_each_play([],1,_,_,_,_,Beta,Beta,_,_):-!.
+for_each_play([],1,_,_,_,_,Beta,Heuristic,_,_):-(Beta == 2->heuristic(1,Heuristic);Heuristic = Beta),!.
 for_each_play([[Left,Right,End|_]|U],1,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,Depth,MaxDepth):-
+    get_state(Left,Right,End,State),
     play(Left,Right,End,1),
-    alphabeta(Depth,MaxDepth,Alpha,Beta,0,Heuristic,_,_,_),
+    (approximation(State,Wins,Seens)->
+    Heuristic is (Wins/Seens),
+     write("Seen before"),nl
+    ;alphabeta(Depth,MaxDepth,Alpha,Beta,0,Heuristic,_,_,_)),
     min(Beta,Heuristic,NewBeta),
     unplay(Left,Right,End,1),
     (NewBeta>Alpha->
