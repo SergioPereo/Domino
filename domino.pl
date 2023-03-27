@@ -84,6 +84,7 @@ pool_pieces(Pieces):-
 %Function that changes the state of the game with a play
 %0: my turn, else opponent turn
 play(Left,Right,0,Turn):-
+    (Turn is 0 -> have(Left,Right);true),
     end_left(Left),
     retract(end_left(Left)),
     assertz(end_left(Right)),
@@ -92,6 +93,7 @@ play(Left,Right,0,Turn):-
     retract(have(Left, Right))
     ;retract(pool(Left,Right)),opponent_play),!.
 play(Left,Right,0,Turn):-
+    (Turn is 0 -> have(Left,Right);true),
     retract(end_left(Right)),
     assertz(end_left(Left)),
     assertz(played(Left,Right)),
@@ -99,6 +101,7 @@ play(Left,Right,0,Turn):-
     retract(have(Left, Right))
     ;retract(pool(Left,Right)),opponent_play),!.
 play(Left,Right,1,Turn):-
+    (Turn is 0 -> have(Left,Right);true),
     end_right(Right),
     retract(end_right(Right)),
     assertz(end_right(Left)),
@@ -107,6 +110,7 @@ play(Left,Right,1,Turn):-
     retract(have(Left, Right))
     ;retract(pool(Left,Right)),opponent_play),!.
 play(Left,Right,1,Turn):-
+    (Turn is 0 -> have(Left,Right);true),
     retract(end_right(Left)),
     assertz(end_right(Right)),
     assertz(played(Left,Right)),
@@ -114,6 +118,7 @@ play(Left,Right,1,Turn):-
     retract(have(Left, Right))
     ;retract(pool(Left,Right)),opponent_play),!.
 play(Left, Right, -1,Turn):-
+    (Turn is 0 -> have(Left,Right);true),
     assertz(end_left(Left)),
     assertz(end_right(Right)),
     assertz(played(Left,Right)),
@@ -178,6 +183,8 @@ opponent_possible_plays(Pieces):-
 opponent_possible_plays(Pieces):-
     setof([Left, Right,End], (pool(Left,Right),can_opponent_place_on(Left,Right,End)),Pieces),!.
 opponent_possible_plays([]).
+opponent_possible_pieces_mau(Pieces):-
+    setof([Left,Right],(pool(Left,Right),can_opponent_place_on(Left,Right,_)),Pieces),!.
 
 %My possible plays
 possible_plays(Pieces):-
@@ -218,18 +225,21 @@ opponent_check_steal_plays([[Left,Right,End|_]|Rest],Count,Num):-
 
 calculaP3(0,P3):-
     possible_plays(Plays),
-    opponent_check_steal_plays(Plays,0,Num),
     length(Plays,Tam),
-    (Tam==0->P3 is 0;P3 is ((Num/Tam))).
+    (Tam==0->P3 is (-1);P3 is 0).
 calculaP3(1,P3):-
     opponent_possible_plays(Plays),
     check_steal_plays(Plays,0,Num),
     length(Plays,Tam),
     (Tam==0->P3 is 0;P3 is (-(Num/Tam))).
 
-calculaP2(0,0):-!.
+calculaP2(0,P2):-
+    possible_plays(Plays),
+    opponent_check_steal_plays(Plays,0,Num),
+    length(Plays,Tam),
+    (Tam==0->P2 is 0;P2 is (Num/Tam)).
 calculaP2(1,P2):-
-    opponent_possible_plays(PiecesOpp),
+    opponent_possible_pieces_mau(PiecesOpp),
     length(PiecesOpp,SonsOpp),
     pool_pieces(PiecesTodo),
     length(PiecesTodo,Quedan),
@@ -251,6 +261,7 @@ calculaP1(1,P1):-
     (Tam==0->P1 is 0;P1 is (-(Num/Tam))).
 
 calculaP1(0,0):-!.
+
 
 
 heuristic(Turn,Vh):-
@@ -292,8 +303,9 @@ alphabeta(Depth,MaxDepth,Alpha,Beta,1,Heuristic,DoLeft,DoRight,DoEnd):-
 for_each_play([],0,_,_,_,Alpha,_,Heuristic,_,_):-(Alpha == -2->heuristic(0,Heuristic);Heuristic = Alpha),!.
 for_each_play([[Left,Right,End|_]|U],0,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,Depth,MaxDepth):-
     get_state(Left,Right,End,State),
+    variant_sha1(State,Key),
     play(Left,Right,End,0),
-    (approximation(State,Wins,Seens)->
+    (approximation(Key,Wins,Seens)->
     Heuristic is (Wins/Seens),
      write("Seen before"),nl
     ;alphabeta(Depth,MaxDepth,Alpha,Beta,1,Heuristic,_,_,_)),
@@ -307,8 +319,9 @@ for_each_play([[Left,Right,End|_]|U],0,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax
 for_each_play([],1,_,_,_,_,Beta,Heuristic,_,_):-(Beta == 2->heuristic(1,Heuristic);Heuristic = Beta),!.
 for_each_play([[Left,Right,End|_]|U],1,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,Depth,MaxDepth):-
     get_state(Left,Right,End,State),
+    variant_sha1(State,Key),
     play(Left,Right,End,1),
-    (approximation(State,Wins,Seens)->
+    (approximation(Key,Wins,Seens)->
     Heuristic is (Wins/Seens),
      write("Seen before"),nl
     ;alphabeta(Depth,MaxDepth,Alpha,Beta,0,Heuristic,_,_,_)),
