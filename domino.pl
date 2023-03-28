@@ -7,6 +7,10 @@
     approximation(key:atom,wins:integer,total_plays:integer).
 :-db_attach('A:/ITAM/4to Semestre/Inteligencia Artificial/Proyecto 2/approximation.journal',[]),db_sync(gc(always)).
 
+/*
+Los predicados max/3 y min/3 son predicados auxiliares 
+que se utilizan para comparar dos números 
+y devolver el mayor o el menor, respectivamente.*/
 max(A,B,Max):-
     A>B,Max is A,!.
 max(_,B,B).
@@ -15,6 +19,11 @@ min(A,B,Min):-
     A<B,Min is A,!.
 min(_,B,B).
 
+/*
+El predicado pool/2 se utiliza para definir todas las fichas de dominó posibles en el juego. 
+El primer argumento representa el valor en el extremo izquierdo de la ficha, 
+mientras que el segundo argumento representa el valor en el extremo derecho.
+*/
 pool(0,0).
 pool(0,1).
 pool(0,2).
@@ -44,8 +53,15 @@ pool(5,5).
 pool(5,6).
 pool(6,6).
 
+/*
+pieces_opponent/1 se utiliza para registrar el número de fichas que tiene el oponente.
+*/
 pieces_opponent(7).
 
+/*
+opponent_play/0 y opponent_steal/0 se utilizan para realizar las acciones correspondientes 
+en la mano del oponente cuando es su turno.
+*/
 opponent_play:-
     pieces_opponent(X),
     Y is X-1,
@@ -58,10 +74,19 @@ opponent_steal:-
     retract(pieces_opponent(X)),
     assertz(pieces_opponent(Y)).
 
+/*
+opponent_play/0 y opponent_steal/0 se utilizan para realizar las acciones correspondientes 
+en la mano del oponente cuando es su turno.
+*/
 own_steal(Left, Right):-
     assertz(have(Left,Right)),
     retract(pool(Left,Right)).
 
+/*
+take/1 se utiliza para tomar varias fichas de la piscina de fichas 
+y ponerlas en la mano de un jugador. Este predicado es recursivo, 
+y el argumento es una lista de fichas.
+*/
 take([]):-!.
 take([Piece|L]):-
     nth0(0,Piece,Left),
@@ -78,11 +103,20 @@ take([Piece|L]):-
     retract(pool(Left, Right)),
     take(L).
 
-%Pieces in pool
+/*
+pool_pieces/1 se utiliza para generar una lista de todas las fichas que quedan en la piscina.
+*/
 pool_pieces(Pieces):-
     findall([Left,Right], (pool(Left,Right)),Pieces).
 %Function that changes the state of the game with a play
 %0: my turn, else opponent turn
+/*
+play/4 se utiliza para colocar una ficha en la mesa. 
+El primer argumento representa el valor en el extremo izquierdo de la ficha, 
+el segundo argumento representa el valor en el extremo derecho, 
+el tercer argumento representa el lado de la mesa en el que se colocará la ficha 
+(0 para el lado izquierdo, 1 para el lado derecho, -1 para el primer turno), y el cuarto
+*/
 play(Left,Right,0,Turn):-
     (Turn is 0 -> have(Left,Right);true),
     end_left(Left),
@@ -125,7 +159,12 @@ play(Left, Right, -1,Turn):-
     (Turn is 0 ->
     retract(have(Left, Right))
     ;retract(pool(Left,Right)),opponent_play),!.
-
+/*
+"unplay" se utiliza para deshacer una jugada anterior. 
+Si "Turn" es 0, entonces el jugador actual es el que ha realizado la jugada. 
+Si es 1, entonces es el oponente. 
+En cualquiera de los casos, se restauran las fichas de juego y el estado de juego.
+*/
 unplay(Left,Right,0,Turn):-
     end_left(Right),
     retract(end_left(Right)),
@@ -157,6 +196,12 @@ unplay(Left,Right,1,Turn):-
     assertz(have(Left,Right))
     ;assertz(pool(Left,Right)),opponent_steal),!.
 
+/*
+"can_i_place_on" se utiliza para comprobar si el jugador actual 
+puede colocar una ficha en uno de los extremos del juego. 
+Se comprueba si el jugador tiene la ficha necesaria 
+y si uno de los extremos del juego es igual a la ficha del jugador.
+*/
 can_i_place_on(Left,Right,End):-
     have(Left,Right),
     (end_left(Left);end_left(Right)),
@@ -166,6 +211,12 @@ can_i_place_on(Left,Right,End):-
     (end_right(Left);end_right(Right)),
     End=1.
 
+/*
+"can_opponent_place_on" se utiliza para comprobar 
+si el oponente puede colocar una ficha en uno de los extremos del juego. 
+Se comprueba si el oponente tiene fichas y 
+si uno de los extremos del juego es igual a una ficha de la "pool".
+*/
 can_opponent_place_on(Left,Right,End):-
     not(pieces_opponent(0)),
     pool(Left,Right),
@@ -177,16 +228,33 @@ can_opponent_place_on(Left,Right,End):-
     (end_right(Left);end_right(Right)),
     End=1.
 
+/*
+"opponent_possible_plays" devuelve una lista de todas las posibles jugadas del oponente. 
+Si el extremo del juego está vacío, entonces se toman todas las fichas de la "pool". 
+Si el extremo del juego no está vacío, 
+entonces se comprueba si el oponente puede colocar una ficha en ese extremo.
+*/
 opponent_possible_plays(Pieces):-
     not(end_left(_)),
     findall([Left,Right],pool(Left,Right),Pieces),!.
 opponent_possible_plays(Pieces):-
     (setof([Left,Right,End], (pool(Left,Right),can_opponent_place_on(Left,Right,End)),Pieces)->true;Pieces=[]),!.
 opponent_possible_plays([]).
+
+/*
+"opponent_possible_pieces_mau" devuelve una lista de todas las posibles fichas que el oponente puede colocar en el juego. 
+Se comprueba si la ficha de la "pool" puede ser colocada en el extremo izquierdo o derecho del juego.
+*/
 opponent_possible_pieces_mau(Pieces):-
     (setof([Left,Right],(pool(Left,Right),can_opponent_place_on(Left,Right,_)),Pieces)->true;Pieces=[]),!.
 
 %My possible plays
+/*
+"possible_plays" devuelve una lista de todas las posibles jugadas del jugador actual. 
+Si el extremo del juego está vacío, entonces se toman todas las fichas que el jugador tiene. 
+Si el extremo del juego no está vacío, 
+entonces se comprueba si el jugador puede colocar una ficha en ese extremo.
+*/
 possible_plays(Pieces):-
     not(end_left(_)),
     findall([Left,Right], have(Left,Right),Pieces),!.
@@ -194,6 +262,10 @@ possible_plays(Pieces):-
     (setof([Left,Right,End], (have(Left,Right),can_i_place_on(Left,Right,End)),Pieces)->true;Pieces=[]),!.
 possible_plays([]):-!.
 
+/*
+factorial/2: es un predicado que calcula el factorial de un número utilizando recursión.
+Se usa para calcular el número de combinaciones en el cálculo de P2.
+*/
 factorial(1,1):-!.
 factorial(X,Y) :-
 	X > 1,
@@ -201,6 +273,10 @@ factorial(X,Y) :-
 	factorial(X1,Y1),
 	Y is X * Y1.
 
+/*
+combinacion/3: es un predicado que calcula el número de combinaciones 
+de X elementos tomados de Y en Y. Se usa para calcular P2.
+*/
 combinacion(X,Y,C) :-
 	factorial(X,Num),
 	R is X-Y,
@@ -209,6 +285,13 @@ combinacion(X,Y,C) :-
 	Den is Facr * Facy,
 	C is Num/Den.
 
+/*
+check_steal_plays/3: es un predicado que comprueba 
+si el jugador actual puede "robar" fichas dada una jugada. 
+Si es así, deshace la jugada y continúa probando las demás posibles jugadas. 
+Si no puede jugar fichas, registra esta situación como un robo y pasa a la siguiente jugada. 
+Se usa para calcular P3.
+*/
 check_steal_plays([],Count,Count):-!.
 check_steal_plays([[Left,Right,End|_]|Rest],Count,Num):-
     play(Left,Right,End,1),
@@ -216,6 +299,10 @@ check_steal_plays([[Left,Right,End|_]|Rest],Count,Num):-
     (Plays==[]->unplay(Left,Right,End,1),NewCount is Count+1,check_steal_plays(Rest,NewCount,Num)
     ;unplay(Left,Right,End,1),check_steal_plays(Rest,Count,Num)).
 
+/*
+opponent_check_steal_plays/3: es similar a check_steal_plays/3 pero para el oponente. 
+Se usa para calcular P2.
+*/
 opponent_check_steal_plays([],Count,Count):-!.
 opponent_check_steal_plays([[Left,Right,End|_]|Rest],Count,Num):-
     play(Left,Right,End,0),
@@ -223,6 +310,19 @@ opponent_check_steal_plays([[Left,Right,End|_]|Rest],Count,Num):-
     (Plays==[]->unplay(Left,Right,End,0),NewCount is Count+1,opponent_check_steal_plays(Rest,NewCount,Num)
     ;unplay(Left,Right,End,0),opponent_check_steal_plays(Rest,Count,Num)).
 
+/*
+calculaP1/2: es un predicado que calcula P1, 
+la probabilidad de que el jugador actual pierda en la siguiente jugada. 
+Utiliza check_loss_plays/3 para comprobar 
+si el oponente tiene jugadas que puedan llevar a la victoria en la siguiente jugada.
+
+calculaP2/2: es un predicado que calcula P2, 
+la probabilidad de que el jugador oponente pueda robar fichas. 
+Utiliza opponent_check_steal_plays/3 para comprobar si el oponente puede robar fichas.
+
+calculaP3/2: es un predicado que calcula P3, la probabilidad de que el jugador actual robe un ficha de la sopa. 
+Utiliza check_steal_plays/3 para comprobar si el jugador actual puede robar fichas en la siguiente jugada.
+*/
 calculaP3(0,P3):-
     possible_plays(Plays),
     length(Plays,Tam),
@@ -262,8 +362,11 @@ calculaP1(1,P1):-
 
 calculaP1(0,0):-!.
 
-
-
+/*
+heuristic/2: es un predicado que calcula la función heurística para un estado dado del juego. 
+Utiliza los predicados calculaP1/2, calculaP2/2 y calculaP3/2 para calcular P1, P2 y P3 respectivamente. 
+Devuelve una combinación lineal de P2 y P3 si P1 es igual a cero, y de lo contrario devuelve -P1.
+*/
 heuristic(Turn,Vh):-
 	%contar numero de hijos del nodo actual
 	%estoy suponiendo que el numero de hijos del nodo es opponent_possible_plays
@@ -273,6 +376,12 @@ heuristic(Turn,Vh):-
 %End: 0,1
 %alphabeta(Left,Right,End,Depth,MaxDepth,Alpha,Beta,Turn,Heuristic).
 %Reach Max Depth
+/*
+alphabeta/9: es un predicado que implementa el algoritmo minimax con poda alpha-beta 
+para determinar la mejor jugada en un momento dado del juego. 
+Toma como entrada la profundidad actual en el árbol de búsqueda, 
+la profundidad máxima permitida, los valores alpha y beta, turno actual y la ficha a jugar.
+*/
 alphabeta(Depth,Depth,_,_,Turn,Heuristic,_,_,_):-
     heuristic(Turn,Heuristic),
     !.
@@ -300,6 +409,14 @@ alphabeta(Depth,MaxDepth,Alpha,Beta,1,Heuristic,DoLeft,DoRight,DoEnd):-
     Heuristic=ActualMax,
     !.
 
+/*
+for_each_play/10 para probar todas las posibles jugadas y determinar la mejor. 
+Si se alcanza la profundidad máxima o se llega a un estado terminal del juego, 
+se calcula la función heurística. 
+Si el jugador actual es el jugador 0 (el jugador que empieza el juego), 
+el algoritmo busca maximizar la función heurística. 
+Si el jugador actual es el jugador 1 (el oponente), el algoritmo busca minimizar la función heurística.
+*/
 for_each_play([],0,_,_,_,Alpha,_,Heuristic,_,_):-(Alpha == -2->heuristic(0,Heuristic);Heuristic = Alpha),!.
 for_each_play([[Left,Right,End|_]|U],0,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax,Depth,MaxDepth):-
     get_state(Left,Right,End,State),
@@ -332,9 +449,14 @@ for_each_play([[Left,Right,End|_]|U],1,DoLeft,DoRight,DoEnd,Alpha,Beta,ActualMax
     (var(DoLeft),ActualMax is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true)
     ;(var(DoLeft),NewBeta is Heuristic -> DoLeft=Left,DoRight=Right,DoEnd=End;true),ActualMax=NewBeta).
 
+/*
+Choose/4 inicializa un alfabeta para el jugador
+*/
 choose(MaxDepth,Heuristic,DoLeft,DoRight,DoEnd):-
     alphabeta(0,MaxDepth,-2,2,0,Heuristic,DoLeft,DoRight,DoEnd).
 
+
+/*El resto es de la IA en el método montecarlo y las simulaciones*/
 opponent_pool(0,0).
 opponent_pool(0,1).
 opponent_pool(0,2).
