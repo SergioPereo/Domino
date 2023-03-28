@@ -181,17 +181,17 @@ opponent_possible_plays(Pieces):-
     not(end_left(_)),
     findall([Left,Right],pool(Left,Right),Pieces),!.
 opponent_possible_plays(Pieces):-
-    setof([Left, Right,End], (pool(Left,Right),can_opponent_place_on(Left,Right,End)),Pieces),!.
+    (setof([Left,Right,End], (pool(Left,Right),can_opponent_place_on(Left,Right,End)),Pieces)->true;Pieces=[]),!.
 opponent_possible_plays([]).
 opponent_possible_pieces_mau(Pieces):-
-    setof([Left,Right],(pool(Left,Right),can_opponent_place_on(Left,Right,_)),Pieces),!.
+    (setof([Left,Right],(pool(Left,Right),can_opponent_place_on(Left,Right,_)),Pieces)->true;Pieces=[]),!.
 
 %My possible plays
 possible_plays(Pieces):-
     not(end_left(_)),
     findall([Left,Right], have(Left,Right),Pieces),!.
 possible_plays(Pieces):-
-    setof([Left,Right,End], (have(Left,Right),can_i_place_on(Left,Right,End)),Pieces),!.
+    (setof([Left,Right,End], (have(Left,Right),can_i_place_on(Left,Right,End)),Pieces)->true;Pieces=[]),!.
 possible_plays([]):-!.
 
 factorial(1,1):-!.
